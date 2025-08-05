@@ -5,7 +5,7 @@ import logging
 import math
 import os
 import pickle
-from config import Config
+#from config import Config
 import time
 from datetime import datetime, timedelta
 from typing import Union, Optional, Dict, Any, List, Tuple
@@ -1941,4 +1941,5 @@ if __name__ == "__main__":
             logger.critical(f"Kritik hata: {e}")
             print(f"\n💔 Beklenmeyen bir hata oluştu: {e}")
             print("Lütfen log dosyasını kontrol edin veya geliştiriciyle iletişime geçin.")
+
             sys.exit(1)
