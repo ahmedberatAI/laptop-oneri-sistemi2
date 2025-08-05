@@ -5,7 +5,105 @@ import plotly.graph_objects as go
 from datetime import datetime
 import sys
 import os
+# ===== DEBUG KODU BAŞLANGIÇ =====
+st.title("🔍 DEBUG: Dosya Kontrol Sistemi")
 
+# 1. Çalışma dizini
+current_dir = os.getcwd()
+st.write(f"**Çalışma Dizini:** {current_dir}")
+
+# 2. Python path
+st.write(f"**Python Path:** {sys.path[0]}")
+
+# 3. Tüm dosya ve klasörleri listele
+st.write("**Ana Dizindeki Tüm Öğeler:**")
+try:
+    items = os.listdir('.')
+    for item in sorted(items):
+        if os.path.isdir(item):
+            st.write(f"📁 {item}/")
+        else:
+            st.write(f"📄 {item}")
+except Exception as e:
+    st.error(f"Ana dizin okunamadı: {e}")
+
+# 4. Data klasörü özel kontrolü
+st.write("---")
+st.write("**Data Klasörü Kontrolü:**")
+
+data_paths = ['data', './data', '/mount/src/laptop-oneri-sistemi2/data']
+for path in data_paths:
+    if os.path.exists(path):
+        st.success(f"✅ {path} bulundu!")
+        try:
+            files = os.listdir(path)
+            st.write(f"İçindeki dosyalar: {files}")
+            
+            csv_files = [f for f in files if f.endswith('.csv')]
+            st.write(f"CSV dosyaları: {csv_files}")
+            
+            # Her CSV dosyasının boyutunu kontrol et
+            for csv_file in csv_files:
+                full_path = os.path.join(path, csv_file)
+                try:
+                    size = os.path.getsize(full_path)
+                    st.write(f"  📊 {csv_file}: {size} bytes")
+                    
+                    # İlk birkaç satırı oku
+                    df_test = pd.read_csv(full_path, nrows=2)
+                    st.write(f"  ✅ {csv_file} başarıyla okundu ({len(df_test.columns)} sütun)")
+                    st.write(f"  📋 Sütunlar: {list(df_test.columns)}")
+                except Exception as e:
+                    st.error(f"  ❌ {csv_file} okunamadı: {e}")
+                    
+        except Exception as e:
+            st.error(f"  ❌ {path} içeriği okunamadı: {e}")
+    else:
+        st.error(f"❌ {path} bulunamadı")
+
+# 5. Config dosyasından beklenen yolları kontrol et
+st.write("---")
+st.write("**Beklenen Dosya Yolları:**")
+
+expected_paths = [
+    'data/vatan_laptop_data_cleaned.csv',
+    'data/amazon_final.csv', 
+    'data/cleaned_incehesap_data.csv'
+]
+
+for path in expected_paths:
+    if os.path.exists(path):
+        size = os.path.getsize(path)
+        st.success(f"✅ {path} ({size} bytes)")
+    else:
+        st.error(f"❌ {path} bulunamadı")
+
+# 6. Manual dosya okuma testi
+st.write("---")
+st.write("**Manuel Dosya Okuma Testi:**")
+
+# Data klasöründeki tüm CSV'leri bul ve oku
+try:
+    if os.path.exists('data'):
+        csv_files = [f for f in os.listdir('data') if f.endswith('.csv')]
+        st.write(f"Bulunan CSV dosyaları: {csv_files}")
+        
+        for csv_file in csv_files:
+            try:
+                full_path = f"data/{csv_file}"
+                df = pd.read_csv(full_path, nrows=5)
+                st.success(f"✅ {csv_file} başarıyla okundu!")
+                st.write(f"Shape: {df.shape}")
+                st.write("İlk 2 satır:")
+                st.dataframe(df.head(2))
+            except Exception as e:
+                st.error(f"❌ {csv_file} okuma hatası: {e}")
+                
+except Exception as e:
+    st.error(f"CSV tarama hatası: {e}")
+
+st.write("===== DEBUG KODU BİTİŞ =====")
+st.write("---")
 # laptop_engine.py dosyasını import et
 from laptop_engine import (
     Config, 
@@ -530,4 +628,5 @@ def show_analytics_page(recommender):
     st.plotly_chart(fig_gpu, use_container_width=True)
 
 if __name__ == "__main__":
+
     main()
