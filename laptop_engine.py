@@ -129,43 +129,88 @@ class CachedDataHandler:
             pickle.dump(df, f)
 
     def load_and_merge_data(self) -> pd.DataFrame:
-        """CSV dosyalarını yükler, birleştirir ve tekilleştirir."""
-        if self._is_cache_valid():
-            logger.info("Önbellekten veri yükleniyor...")
-            return self._load_from_cache()
+    """CSV dosyalarını yükler, birleştirir ve tekilleştirir."""
+    if self._is_cache_valid():
+        logger.info("Önbellekten veri yükleniyor...")
+        return self._load_from_cache()
 
-        datasets = []
-        for i, path in enumerate(self.config.DATASET_PATHS, 1):
+    datasets = []
+    for i, path in enumerate(self.config.DATASET_PATHS, 1):
+        try:
+            # Daha basit okuma - encoding ve özel parametreler kaldırıldı
+            df = pd.read_csv(path)
+            df['data_source'] = f'dataset_{i}'
+            datasets.append(df)
+            logger.info(f"✅ Dataset {i} yüklendi: {len(df)} satır - {path}")
+            print(f"✅ Dataset {i} yüklendi: {len(df)} satır - {path}")  # Debug için
+            
+        except FileNotFoundError as e:
+            logger.warning(f"❌ '{path}' dosyası bulunamadı: {e}")
+            print(f"❌ '{path}' dosyası bulunamadı: {e}")
+            
+        except pd.errors.EmptyDataError as e:
+            logger.warning(f"❌ '{path}' dosyası boş: {e}")
+            print(f"❌ '{path}' dosyası boş: {e}")
+            
+        except pd.errors.ParserError as e:
+            logger.error(f"❌ '{path}' parsing hatası: {e}")
+            print(f"❌ '{path}' parsing hatası: {e}")
+            # Alternatif okuma dene
             try:
-                df = pd.read_csv(
-                    path,
-                    quotechar='"',
-                    doublequote=True,
-                    escapechar='\\',
-                    engine='python'
-                )
+                df = pd.read_csv(path, encoding='utf-8-sig', sep=',')
                 df['data_source'] = f'dataset_{i}'
                 datasets.append(df)
-                logger.info(f"Dataset {i} yüklendi: {len(df)} satır")
-            except FileNotFoundError:
-                logger.warning(f"'{path}' dosyası bulunamadı. Bu kaynak atlanıyor.")
-            except Exception as e:
-                logger.error(f"'{path}' dosyası yüklenirken hata: {e}")
+                logger.info(f"✅ Dataset {i} alternatif yöntemle yüklendi: {len(df)} satır")
+                print(f"✅ Dataset {i} alternatif yöntemle yüklendi: {len(df)} satır")
+            except Exception as e2:
+                logger.error(f"❌ '{path}' alternatif yöntem de başarısız: {e2}")
+                print(f"❌ '{path}' alternatif yöntem de başarısız: {e2}")
+                
+        except Exception as e:
+            logger.error(f"❌ '{path}' genel hata: {e}")
+            print(f"❌ '{path}' genel hata: {e}")
+            # Son deneme - en basit yöntem
+            try:
+                df = pd.read_csv(path, encoding='utf-8')
+                df['data_source'] = f'dataset_{i}'
+                datasets.append(df)
+                logger.info(f"✅ Dataset {i} basit yöntemle yüklendi: {len(df)} satır")
+                print(f"✅ Dataset {i} basit yöntemle yüklendi: {len(df)} satır")
+            except Exception as e3:
+                logger.error(f"❌ '{path}' son deneme de başarısız: {e3}")
+                print(f"❌ '{path}' son deneme de başarısız: {e3}")
 
-        if not datasets:
-            raise FileNotFoundError("Hiçbir veri dosyası bulunamadı.")
+    print(f"🔢 Toplam yüklenen dataset sayısı: {len(datasets)}")
+    logger.info(f"Toplam yüklenen dataset sayısı: {len(datasets)}")
+    
+    if not datasets:
+        error_msg = "Hiçbir veri dosyası yüklenemedi. Tüm dosyalar başarısız."
+        logger.error(error_msg)
+        print(f"❌ HATA: {error_msg}")
+        raise FileNotFoundError(error_msg)
 
-        combined_df = pd.concat(datasets, ignore_index=True)
+    # Datasetleri birleştir
+    combined_df = pd.concat(datasets, ignore_index=True)
+    logger.info(f"✅ Veriler başarıyla birleştirildi: {len(combined_df)} satır")
+    print(f"✅ Veriler başarıyla birleştirildi: {len(combined_df)} satır")
 
-        # Duplike verileri temizle
-        initial_count = len(combined_df)
-        combined_df = combined_df.drop_duplicates(subset=['name', 'price'], keep='first')
-        logger.info(f"Veriler birleştirildi. {initial_count - len(combined_df)} duplike satır kaldırıldı.")
+    # Duplike verileri temizle
+    initial_count = len(combined_df)
+    combined_df = combined_df.drop_duplicates(subset=['name', 'price'], keep='first')
+    removed_count = initial_count - len(combined_df)
+    logger.info(f"✅ {removed_count} duplike satır kaldırıldı. Final: {len(combined_df)} satır")
+    print(f"✅ {removed_count} duplike satır kaldırıldı. Final: {len(combined_df)} satır")
 
-        # Cache'e kaydet
+    # Cache'e kaydet
+    try:
         self._save_to_cache(combined_df)
+        logger.info("✅ Veri cache'e kaydedildi")
+        print("✅ Veri cache'e kaydedildi")
+    except Exception as e:
+        logger.warning(f"⚠️ Cache kaydetme başarısız: {e}")
+        print(f"⚠️ Cache kaydetme başarısız: {e}")
 
-        return combined_df
+    return combined_df
 
 
 class EnhancedDataHandler:
@@ -1943,3 +1988,4 @@ if __name__ == "__main__":
             print("Lütfen log dosyasını kontrol edin veya geliştiriciyle iletişime geçin.")
 
             sys.exit(1)
+
